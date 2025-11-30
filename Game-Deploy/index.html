@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Waste Bin - Interactive Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            min-width: 250px;
+            z-index: 10;
+        }
+
+        #info-panel h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        #distance-display {
+            font-size: 2rem;
+            text-align: center;
+            margin: 15px 0;
+            color: #667eea;
+            font-weight: 800;
+        }
+
+        #status-message {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .status-ready {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-near {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-open {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            animation: pulse 0.5s;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        #controls h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .control-btn {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .reset-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            margin-top: 10px;
+        }
+
+        .instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 16px;
+            max-width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .instructions h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            line-height: 1.8;
+            color: #333;
+        }
+
+        .proximity-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 4px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            animation: pulse-ring 2s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes pulse-ring {
+
+            0%,
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+                opacity: 0.2;
+            }
+        }
+
+        @media (max-width: 768px) {
+
+            #info-panel,
+            .instructions {
+                font-size: 0.9rem;
+                padding: 15px;
+            }
+
+            .control-btn {
+                padding: 12px 15px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container"></div>
+
+    <!-- Info Panel -->
+    <div id="info-panel">
+        <h2>🗑️ Smart Bin Game</h2>
+        <div class="stat">
+            <span class="stat-label">Score:</span>
+            <span class="stat-value" id="score">0</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Successful:</span>
+            <span class="stat-value" id="success-count">0</span>
+        </div>
+        <div id="distance-display">-- cm</div>
+        <div id="status-message" class="status-ready">
+            Move waste towards bin
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions">
+        <h3>📋 How to Play</h3>
+        <ul>
+            <li>Use arrow keys to move the waste</li>
+            <li>Get within <strong>20cm</strong> of the bin</li>
+            <li>Lid opens automatically!</li>
+            <li>Waste drops into bin</li>
+            <li>Score increases with each success!</li>
+        </ul>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+        <h3>🎮 Controls</h3>
+        <div class="control-grid">
+            <div></div>
+            <button class="control-btn" onclick="moveWaste(0, 0, -0.5)">↑</button>
+            <div></div>
+            <button class="control-btn" onclick="moveWaste(-0.5, 0, 0)">←</button>
+            <button class="control-btn" onclick="moveWaste(0, -0.5, 0)">↓</button>
+            <button class="control-btn" onclick="moveWaste(0.5, 0, 0)">→</button>
+            <div></div>
+            <button class="control-btn" onclick="moveWaste(0, 0, 0.5)">Back</button>
+            <div></div>
+        </div>
+        <button class="control-btn reset-btn" onclick="resetGame()">🔄 Reset Position</button>
+    </div>
+
+    <script>
+        // Game state
+        let scene, camera, renderer, controls;
+        let wasteBin, lid, wasteObject, hand;
+        let score = 0;
+        let successCount = 0;
+        let isLidOpen = false;
+        let isDisposing = false;
+        let proximityThreshold = 2.0; // 20cm in our scale (0.1 = 1cm)
+        let wasteInHand = true;
+
+        // Initialize game
+        function initGame() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f4f8);
+            scene.fog = new THREE.Fog(0xf0f4f8, 10, 50);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 4, 8);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            // Orbit Controls
+            const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+            orbitControls.enableDamping = true;
+            orbitControls.dampingFactor = 0.05;
+            orbitControls.maxPolarAngle = Math.PI / 2;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.camera.left = -10;
+            directionalLight.shadow.camera.right = 10;
+            directionalLight.shadow.camera.top = 10;
+            directionalLight.shadow.camera.bottom = -10;
+            scene.add(directionalLight);
+
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(20, 20);
+            const groundMaterial = new THREE.MeshStandardMaterial({
+                color: 0xe0e0e0,
+                roughness: 0.8
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Grid helper
+            const gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xeeeeee);
+            scene.add(gridHelper);
+
+            // Create game objects
+            createWasteBin();
+            createHandWithWaste();
+            createProximityIndicator();
+
+            // Keyboard controls
+            setupKeyboardControls();
+
+            // Start animation loop
+            animate();
+
+            updateStatus();
+        }
+
+        function createWasteBin() {
+            wasteBin = new THREE.Group();
+
+            // Bin body
+            const bodyGeometry = new THREE.CylinderGeometry(0.8, 0.9, 1.5, 32);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2c2c2c,
+                metalness: 0.4,
+                roughness: 0.6
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.castShadow = true;
+            body.receiveShadow = true;
+            wasteBin.add(body);
+
+            // Lid (separate for animation)
+            lid = new THREE.Group();
+
+            const lidGeometry = new THREE.CylinderGeometry(0.85, 0.85, 0.1, 32);
+            const lidMaterial = new THREE.MeshStandardMaterial({
+                color: 0x667eea,
+                metalness: 0.6,
+                roughness: 0.4
+            });
+            const lidMesh = new THREE.Mesh(lidGeometry, lidMaterial);
+            lidMesh.castShadow = true;
+            lid.add(lidMesh);
+
+            // Lid handle
+            const handleGeometry = new THREE.TorusGeometry(0.2, 0.05, 16, 32);
+            const handleMaterial = new THREE.MeshStandardMaterial({
+                color: 0x999999,
+                metalness: 0.8,
+                roughness: 0.2
+            });
+            const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+            handle.rotation.x = Math.PI / 2;
+            handle.position.y = 0.1;
+            lid.add(handle);
+
+            lid.position.y = 0.8;
+            wasteBin.add(lid);
+
+            // Proximity sensor (glowing red dot)
+            const sensorGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+            const sensorMaterial = new THREE.MeshStandardMaterial({
+                color: 0xff0000,
+                emissive: 0xff0000,
+                emissiveIntensity: 0.8
+            });
+            const sensor = new THREE.Mesh(sensorGeometry, sensorMaterial);
+            sensor.position.set(0, 0.2, 0.85);
+            wasteBin.add(sensor);
+
+            // Add pulsing light to sensor
+            const sensorLight = new THREE.PointLight(0xff0000, 0.5, 2);
+            sensorLight.position.copy(sensor.position);
+            wasteBin.add(sensorLight);
+
+            wasteBin.position.set(0, 0.75, 0);
+            scene.add(wasteBin);
+        }
+
+        function createHandWithWaste() {
+            hand = new THREE.Group();
+
+            // Hand (simplified as a cube/palm)
+            const handGeometry = new THREE.BoxGeometry(0.3, 0.15, 0.4);
+            const handMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffdbac,
+                roughness: 0.8
+            });
+            const palm = new THREE.Mesh(handGeometry, handMaterial);
+            palm.castShadow = true;
+            hand.add(palm);
+
+            // Fingers (simplified)
+            const fingerGeometry = new THREE.BoxGeometry(0.08, 0.3, 0.08);
+            for (let i = 0; i < 4; i++) {
+                const finger = new THREE.Mesh(fingerGeometry, handMaterial);
+                finger.position.set(-0.12 + i * 0.08, 0.15, 0.15);
+                finger.castShadow = true;
+                hand.add(finger);
+            }
+
+            // Waste object (crumpled paper ball)
+            const wasteGeometry = new THREE.SphereGeometry(0.25, 12, 12);
+            const wasteMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            wasteObject = new THREE.Mesh(wasteGeometry, wasteMaterial);
+            wasteObject.castShadow = true;
+            wasteObject.position.y = 0.3;
+
+            // Make it look crumpled
+            const positions = wasteGeometry.attributes.position;
+            for (let i = 0; i < positions.count; i++) {
+                positions.setY(i, positions.getY(i) + (Math.random() - 0.5) * 0.1);
+            }
+            positions.needsUpdate = true;
+            wasteGeometry.computeVertexNormals();
+
+            hand.add(wasteObject);
+
+            // Position hand to the side
+            hand.position.set(4, 1.5, 4);
+            hand.rotation.y = -Math.PI / 4;
+            scene.add(hand);
+        }
+
+        function createProximityIndicator() {
+            // Create invisible proximity zone
+            const zoneGeometry = new THREE.SphereGeometry(proximityThreshold, 16, 16);
+            const zoneMaterial = new THREE.MeshBasicMaterial({
+                color: 0x667eea,
+                transparent: true,
+                opacity: 0.1,
+                wireframe: true
+            });
+            const proximityZone = new THREE.Mesh(zoneGeometry, zoneMaterial);
+            proximityZone.position.copy(wasteBin.position);
+            scene.add(proximityZone);
+        }
+
+        function setupKeyboardControls() {
+            document.addEventListener('keydown', (event) => {
+                const moveSpeed = 0.3;
+
+                switch (event.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                        moveWaste(0, 0, -moveSpeed);
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                        moveWaste(0, 0, moveSpeed);
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                        moveWaste(-moveSpeed, 0, 0);
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                        moveWaste(moveSpeed, 0, 0);
+                        break;
+                    case ' ':
+                        moveWaste(0, -moveSpeed, 0);
+                        break;
+                    case 'Shift':
+                        moveWaste(0, moveSpeed, 0);
+                        break;
+                    case 'r':
+                        resetGame();
+                        break;
+                }
+            });
+        }
+
+        function moveWaste(x, y, z) {
+            if (isDisposing || !wasteInHand) return;
+
+            hand.position.x += x;
+            hand.position.y += y;
+            hand.position.z += z;
+
+            // Keep hand above ground
+            if (hand.position.y < 0.5) hand.position.y = 0.5;
+
+            checkProximity();
+        }
+
+        function checkProximity() {
+            if (!wasteInHand || isDisposing) return;
+
+            const distance = hand.position.distanceTo(wasteBin.position);
+            const distanceCm = Math.round(distance * 10);
+
+            document.getElementById('distance-display').textContent = distanceCm + ' cm';
+
+            if (distance <= proximityThreshold && !isLidOpen) {
+                openLid();
+            } else if (distance > proximityThreshold && isLidOpen && !isDisposing) {
+                closeLid();
+            }
+
+            // Auto-dispose when very close and lid is open
+            if (distance < 1.2 && isLidOpen && !isDisposing) {
+                disposeWaste();
+            }
+        }
+
+        function openLid() {
+            isLidOpen = true;
+            updateStatus('near');
+
+            // Animate lid opening
+            const openAnimation = () => {
+                if (lid.rotation.x < Math.PI / 3) {
+                    lid.rotation.x += 0.05;
+                    requestAnimationFrame(openAnimation);
+                } else {
+                    updateStatus('open');
+                }
+            };
+            openAnimation();
+        }
+
+        function closeLid() {
+            isLidOpen = false;
+            updateStatus('ready');
+
+            // Animate lid closing
+            const closeAnimation = () => {
+                if (lid.rotation.x > 0) {
+                    lid.rotation.x -= 0.05;
+                    requestAnimationFrame(closeAnimation);
+                }
+            };
+            closeAnimation();
+        }
+
+        function disposeWaste() {
+            if (!wasteInHand || isDisposing) return;
+
+            isDisposing = true;
+            wasteInHand = false;
+
+            // Animate waste dropping into bin
+            const dropAnimation = () => {
+                if (wasteObject.position.y > -0.5) {
+                    wasteObject.position.y -= 0.05;
+                    wasteObject.rotation.x += 0.1;
+                    wasteObject.rotation.z += 0.1;
+                    requestAnimationFrame(dropAnimation);
+                } else {
+                    // Waste disposed successfully!
+                    wasteObject.visible = false;
+                    score += 10;
+                    successCount++;
+                    document.getElementById('score').textContent = score;
+                    document.getElementById('success-count').textContent = successCount;
+                    updateStatus('success');
+
+                    // Close lid and reset after a delay
+                    setTimeout(() => {
+                        closeLid();
+                        setTimeout(resetWaste, 500);
+                    }, 1000);
+                }
+            };
+            dropAnimation();
+        }
+
+        function resetWaste() {
+            // Reset waste position
+            wasteObject.visible = true;
+            wasteObject.position.set(0, 0.3, 0);
+            wasteObject.rotation.set(0, 0, 0);
+
+            // Reset hand position
+            hand.position.set(4, 1.5, 4);
+
+            wasteInHand = true;
+            isDisposing = false;
+            updateStatus('ready');
+        }
+
+        function resetGame() {
+            resetWaste();
+            score = 0;
+            successCount = 0;
+            document.getElementById('score').textContent = score;
+            document.getElementById('success-count').textContent = successCount;
+            if (isLidOpen) closeLid();
+        }
+
+        function updateStatus(status = 'ready') {
+            const statusEl = document.getElementById('status-message');
+            statusEl.className = '';
+
+            switch (status) {
+                case 'ready':
+                    statusEl.className = 'status-ready';
+                    statusEl.textContent = 'Move waste towards bin';
+                    break;
+                case 'near':
+                    statusEl.className = 'status-near';
+                    statusEl.textContent = '⚠️ Proximity detected! Lid opening...';
+                    break;
+                case 'open':
+                    statusEl.className = 'status-open';
+                    statusEl.textContent = '✅ Lid open! Move closer to dispose';
+                    break;
+                case 'success':
+                    statusEl.className = 'status-success';
+                    statusEl.textContent = '🎉 Waste disposed successfully!';
+                    break;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate waste slightly for effect
+            if (wasteObject && wasteInHand) {
+                wasteObject.rotation.y += 0.01;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize game when page loads
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+
+</html>
